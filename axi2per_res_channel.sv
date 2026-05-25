@@ -14,6 +14,8 @@ module axi2per_res_channel
    input logic                       per_master_r_valid_i,
    input logic                       per_master_r_opc_i,
    input logic [PER_DATA_WIDTH-1:0]  per_master_r_rdata_i,
+   input logic [PER_ID_WIDTH-1:0]    per_master_r_id_i,
+   input logic [AXI_USER_WIDTH-1:0]  per_master_r_user_i,
    output logic                      axi_slave_r_valid_o,
    output logic [AXI_DATA_WIDTH-1:0] axi_slave_r_data_o,
    output logic [1:0]                axi_slave_r_resp_o,
@@ -37,8 +39,9 @@ localparam int unsigned AXI_BE_WIDTH = AXI_DATA_WIDTH/8;
 localparam int unsigned BEAT_RATIO   = (PER_DATA_WIDTH/AXI_DATA_WIDTH);
 localparam int unsigned SLOT_W       = (BEAT_RATIO > 1) ? $clog2(BEAT_RATIO) : 1;
 
-logic [PER_DATA_WIDTH-1:0] rdata_q;
-logic [AXI_ID_WIDTH-1:0] id_q;
+logic [PER_DATA_WIDTH-1:0]  rdata_q;
+logic [AXI_ID_WIDTH-1:0]   id_q;
+logic [AXI_USER_WIDTH-1:0] user_q;
 logic [7:0] len_q;
 logic is_read_q;
 logic [SLOT_W-1:0] base_slot_q;
@@ -49,7 +52,7 @@ integer rd_slot;
 
 always_ff @(posedge clk_i or negedge rst_ni) begin
  if(!rst_ni) begin
-  rdata_q<='0; id_q<='0; len_q<='0; is_read_q<=0; base_slot_q<='0; beat_q<='0; have_rsp_q<=0; have_bresp_q<=0;
+  rdata_q<='0; id_q<='0; user_q<='0; len_q<='0; is_read_q<=0; base_slot_q<='0; beat_q<='0; have_rsp_q<=0; have_bresp_q<=0;
  end else begin
   if(trans_req_i) begin
     is_read_q <= trans_we_i;
@@ -59,6 +62,7 @@ always_ff @(posedge clk_i or negedge rst_ni) begin
     base_slot_q <= trans_add_i[$clog2(PER_DATA_WIDTH/8)-1:$clog2(AXI_BE_WIDTH)];
   end
   if(per_master_r_valid_i) begin
+    user_q <= per_master_r_user_i;   // capture user field from peripheral response
     if(is_read_q) begin
       rdata_q <= per_master_r_rdata_i;
       have_rsp_q <= 1'b1;
@@ -92,8 +96,8 @@ always_comb begin
    if(have_bresp_q && axi_slave_b_ready_i) trans_r_valid_o=1;
  end
 end
-assign axi_slave_r_resp_o='0;
-assign axi_slave_r_user_o='0;
-assign axi_slave_b_resp_o='0;
-assign axi_slave_b_user_o='0;
+assign axi_slave_r_resp_o = '0;
+assign axi_slave_r_user_o = user_q;   // pass through user field from peripheral response
+assign axi_slave_b_resp_o = '0;
+assign axi_slave_b_user_o = user_q;   // pass through user field from peripheral response
 endmodule

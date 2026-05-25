@@ -45,12 +45,14 @@ module axi2per_req_channel
    input  logic [AXI_USER_WIDTH-1:0] axi_slave_w_user_i,
    input  logic                      axi_slave_w_last_i,
    output logic                      axi_slave_w_ready_o,
-   output logic                      per_master_req_o,
-   output logic [PER_ADDR_WIDTH-1:0] per_master_add_o,
-   output logic                      per_master_we_o,
-   output logic [PER_DATA_WIDTH-1:0] per_master_wdata_o,
-   output logic [PER_BE_WIDTH-1:0]   per_master_be_o,
-   input  logic                      per_master_gnt_i,
+   output logic                       per_master_req_o,
+   output logic [PER_ADDR_WIDTH-1:0]  per_master_add_o,
+   output logic                       per_master_we_o,      // 1=WRITE, 0=READ (standard PULP convention)
+   output logic [PER_DATA_WIDTH-1:0]  per_master_wdata_o,
+   output logic [PER_BE_WIDTH-1:0]    per_master_be_o,
+   output logic [PER_ID_WIDTH-1:0]    per_master_id_o,
+   output logic [AXI_USER_WIDTH-1:0]  per_master_user_o,
+   input  logic                       per_master_gnt_i,
    output logic                      trans_req_o,
    output logic                      trans_we_o,
    output logic [AXI_ID_WIDTH-1:0]   trans_id_o,
@@ -73,6 +75,7 @@ logic [AXI_ADDR_WIDTH-1:0] aw_addr_q, aw_addr_d;
 logic [AXI_ID_WIDTH-1:0]   aw_id_q, aw_id_d;
 logic [7:0]                aw_len_q, aw_len_d;
 logic [SLOT_W-1:0]         base_slot_q, base_slot_d;
+logic [AXI_USER_WIDTH-1:0] aw_user_q,   aw_user_d;
 integer wr_slot;
 
 always_comb begin
@@ -80,13 +83,17 @@ always_comb begin
   aw_addr_d=aw_addr_q; aw_id_d=aw_id_q; aw_len_d=aw_len_q; base_slot_d=base_slot_q;
   axi_slave_aw_ready_o=0; axi_slave_ar_ready_o=0; axi_slave_w_ready_o=0;
   per_master_req_o=0; per_master_add_o='0; per_master_we_o=0; per_master_wdata_o='0; per_master_be_o='0;
+  per_master_id_o='0; per_master_user_o='0;
   trans_req_o=0; trans_we_o=0; trans_id_o='0; trans_add_o='0; trans_len_o='0;
   busy_o = (state_q!=IDLE);
 
   case(state_q)
     IDLE: begin
       if (axi_slave_ar_valid_i) begin
-        per_master_req_o=1; per_master_we_o=1; per_master_add_o=axi_slave_ar_addr_i;
+        // READ: we_o=0 (standard PULP: 0=read)
+        per_master_req_o=1; per_master_we_o=0; per_master_add_o=axi_slave_ar_addr_i;
+        per_master_id_o   = {{(PER_ID_WIDTH-AXI_ID_WIDTH){1'b0}}, axi_slave_ar_id_i};
+        per_master_user_o = axi_slave_ar_user_i;
         if (per_master_gnt_i) begin
           axi_slave_ar_ready_o=1; trans_req_o=1; trans_we_o=1; trans_id_o=axi_slave_ar_id_i; trans_add_o=axi_slave_ar_addr_i; trans_len_o=axi_slave_ar_len_i;
           state_d=WAIT_RESP;
@@ -94,6 +101,7 @@ always_comb begin
       end else if (axi_slave_aw_valid_i) begin
         axi_slave_aw_ready_o=1;
         aw_addr_d=axi_slave_aw_addr_i; aw_id_d=axi_slave_aw_id_i; aw_len_d=axi_slave_aw_len_i;
+        aw_user_d=axi_slave_aw_user_i;
         beats_exp_d=axi_slave_aw_len_i+8'd1; beat_cnt_d='0; wdata_buf_d='0; be_buf_d='0;
         base_slot_d = axi_slave_aw_addr_i[$clog2(PER_BE_WIDTH)-1:$clog2(AXI_BE_WIDTH)];
         state_d=COLLECT;
@@ -109,8 +117,11 @@ always_comb begin
         end
         beat_cnt_d = beat_cnt_q + 8'd1;
         if ((beat_cnt_q + 8'd1 == beats_exp_q) || axi_slave_w_last_i) begin
-          per_master_req_o=1; per_master_we_o=0; per_master_add_o=aw_addr_q;
+          // WRITE: we_o=1 (standard PULP: 1=write)
+          per_master_req_o=1; per_master_we_o=1; per_master_add_o=aw_addr_q;
           per_master_wdata_o=wdata_buf_d; per_master_be_o=be_buf_d;
+          per_master_id_o   = {{(PER_ID_WIDTH-AXI_ID_WIDTH){1'b0}}, aw_id_q};
+          per_master_user_o = aw_user_q;
           if (per_master_gnt_i) begin
             trans_req_o=1; trans_we_o=0; trans_id_o=aw_id_q; trans_add_o=aw_addr_q; trans_len_o=aw_len_q;
             state_d=WAIT_RESP;
@@ -126,9 +137,9 @@ end
 
 always_ff @(posedge clk_i or negedge rst_ni) begin
   if(!rst_ni) begin
-    state_q<=IDLE; wdata_buf_q<='0; be_buf_q<='0; beat_cnt_q<='0; beats_exp_q<='0; aw_addr_q<='0; aw_id_q<='0; aw_len_q<='0; base_slot_q<='0;
+    state_q<=IDLE; wdata_buf_q<='0; be_buf_q<='0; beat_cnt_q<='0; beats_exp_q<='0; aw_addr_q<='0; aw_id_q<='0; aw_len_q<='0; base_slot_q<='0; aw_user_q<='0;
   end else begin
-    state_q<=state_d; wdata_buf_q<=wdata_buf_d; be_buf_q<=be_buf_d; beat_cnt_q<=beat_cnt_d; beats_exp_q<=beats_exp_d; aw_addr_q<=aw_addr_d; aw_id_q<=aw_id_d; aw_len_q<=aw_len_d; base_slot_q<=base_slot_d;
+    state_q<=state_d; wdata_buf_q<=wdata_buf_d; be_buf_q<=be_buf_d; beat_cnt_q<=beat_cnt_d; beats_exp_q<=beats_exp_d; aw_addr_q<=aw_addr_d; aw_id_q<=aw_id_d; aw_len_q<=aw_len_d; base_slot_q<=base_slot_d; aw_user_q<=aw_user_d;
   end
 end
 endmodule

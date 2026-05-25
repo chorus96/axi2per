@@ -13,12 +13,12 @@
 module axi2per
 #(
    parameter PER_ADDR_WIDTH = 32,
-   parameter PER_ID_WIDTH   = 5,
    parameter PER_DATA_WIDTH = 256,
    parameter AXI_ADDR_WIDTH = 32,
    parameter AXI_DATA_WIDTH = 64,
    parameter AXI_USER_WIDTH = 6,
    parameter AXI_ID_WIDTH   = 3,
+   parameter PER_ID_WIDTH   = 2**AXI_ID_WIDTH,  // one-hot: 2^AXI_ID_WIDTH bits
    parameter BUFFER_DEPTH   = 2,
    parameter AXI_STRB_WIDTH = AXI_DATA_WIDTH/8
 )

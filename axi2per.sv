@@ -167,6 +167,7 @@ module axi2per
    axi2per_req_channel
    #(
       .PER_ADDR_WIDTH        ( PER_ADDR_WIDTH      ),
+      .PER_ID_WIDTH          ( PER_ID_WIDTH        ),
       .PER_DATA_WIDTH        ( PER_DATA_WIDTH      ),
       .AXI_ADDR_WIDTH        ( AXI_ADDR_WIDTH      ),
       .AXI_DATA_WIDTH        ( AXI_DATA_WIDTH      ),
@@ -236,6 +237,7 @@ module axi2per
    axi2per_res_channel
    #(
       .PER_ADDR_WIDTH       ( PER_ADDR_WIDTH       ),
+      .PER_ID_WIDTH         ( PER_ID_WIDTH         ),
       .PER_DATA_WIDTH       ( PER_DATA_WIDTH       ),
       .AXI_ADDR_WIDTH       ( AXI_ADDR_WIDTH       ),
       .AXI_DATA_WIDTH       ( AXI_DATA_WIDTH       ),

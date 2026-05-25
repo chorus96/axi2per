@@ -92,7 +92,7 @@ always_comb begin
       if (axi_slave_ar_valid_i) begin
         // READ: we_o=0 (standard PULP: 0=read)
         per_master_req_o=1; per_master_we_o=0; per_master_add_o=axi_slave_ar_addr_i;
-        per_master_id_o   = {{(PER_ID_WIDTH-AXI_ID_WIDTH){1'b0}}, axi_slave_ar_id_i};
+        per_master_id_o   = {{(PER_ID_WIDTH-1){1'b0}}, 1'b1} << axi_slave_ar_id_i; // binary→one-hot
         per_master_user_o = axi_slave_ar_user_i;
         if (per_master_gnt_i) begin
           axi_slave_ar_ready_o=1; trans_req_o=1; trans_we_o=1; trans_id_o=axi_slave_ar_id_i; trans_add_o=axi_slave_ar_addr_i; trans_len_o=axi_slave_ar_len_i;
@@ -120,7 +120,7 @@ always_comb begin
           // WRITE: we_o=1 (standard PULP: 1=write)
           per_master_req_o=1; per_master_we_o=1; per_master_add_o=aw_addr_q;
           per_master_wdata_o=wdata_buf_d; per_master_be_o=be_buf_d;
-          per_master_id_o   = {{(PER_ID_WIDTH-AXI_ID_WIDTH){1'b0}}, aw_id_q};
+          per_master_id_o   = {{(PER_ID_WIDTH-1){1'b0}}, 1'b1} << aw_id_q;       // binary→one-hot
           per_master_user_o = aw_user_q;
           if (per_master_gnt_i) begin
             trans_req_o=1; trans_we_o=0; trans_id_o=aw_id_q; trans_add_o=aw_addr_q; trans_len_o=aw_len_q;

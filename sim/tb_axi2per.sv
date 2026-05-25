@@ -1,6 +1,8 @@
 `timescale 1ns/1ps
 // Test configuration: PER_DATA_WIDTH=256, AXI_DATA_WIDTH=64, 4-beat AXI bursts
 // BEAT_RATIO = 256/64 = 4  →  one peripheral 256-bit word = four 64-bit AXI beats
+// ID encoding : AXI_ID_WIDTH bits binary  ↔  PER_ID_WIDTH bits one-hot
+//   PER_ID_WIDTH = 2^AXI_ID_WIDTH so every binary ID maps to a unique one-hot bit
 module tb_axi2per;
 localparam int unsigned PER_ADDR_WIDTH = 32;
 localparam int unsigned PER_DATA_WIDTH = 256;
@@ -8,6 +10,7 @@ localparam int unsigned AXI_ADDR_WIDTH = 32;
 localparam int unsigned AXI_DATA_WIDTH = 64;
 localparam int unsigned AXI_USER_WIDTH = 6;
 localparam int unsigned AXI_ID_WIDTH   = 3;
+localparam int unsigned PER_ID_WIDTH   = 2**AXI_ID_WIDTH; // one-hot: 8 bits for 3-bit binary IDs
 localparam int unsigned BUFFER_DEPTH   = 2;
 localparam int unsigned AXI_STRB_WIDTH = AXI_DATA_WIDTH/8;  // 8
 
@@ -36,19 +39,20 @@ logic [PER_ADDR_WIDTH-1:0] per_add;
 logic                      per_we;
 logic [PER_DATA_WIDTH-1:0] per_wdata;
 logic [PER_DATA_WIDTH/8-1:0] per_be;
-logic [4:0]                per_id;
+logic [PER_ID_WIDTH-1:0]   per_id;     // one-hot encoded
 logic [AXI_USER_WIDTH-1:0] per_user;
 logic                      per_gnt;
 logic                      per_r_valid;
 logic                      per_r_opc;
 logic [PER_DATA_WIDTH-1:0] per_r_rdata;
-logic [4:0]                per_r_id;
+logic [PER_ID_WIDTH-1:0]   per_r_id;   // one-hot encoded
 logic [AXI_USER_WIDTH-1:0] per_r_user;
 logic                      busy;
 
 // DUT
 axi2per #(
   .PER_ADDR_WIDTH(PER_ADDR_WIDTH), .PER_DATA_WIDTH(PER_DATA_WIDTH),
+  .PER_ID_WIDTH(PER_ID_WIDTH),
   .AXI_ADDR_WIDTH(AXI_ADDR_WIDTH), .AXI_DATA_WIDTH(AXI_DATA_WIDTH),
   .AXI_USER_WIDTH(AXI_USER_WIDTH), .AXI_ID_WIDTH(AXI_ID_WIDTH),
   .BUFFER_DEPTH(BUFFER_DEPTH)
@@ -97,6 +101,7 @@ axi2per #(
 // Peripheral slave model
 per_slave_model #(
   .ADDR_WIDTH(PER_ADDR_WIDTH), .DATA_WIDTH(PER_DATA_WIDTH),
+  .PER_ID_WIDTH(PER_ID_WIDTH),
   .MEM_WORDS(256), .RESP_DELAY(1)
 ) per (
   .clk_i(clk), .rst_ni(rst_n),
@@ -107,6 +112,19 @@ per_slave_model #(
   .r_valid_o(per_r_valid), .r_opc_o(per_r_opc),
   .r_rdata_o(per_r_rdata), .r_id_o(per_r_id), .r_user_o(per_r_user)
 );
+
+// ---------------------------------------------------------------
+// One-hot ID checker: fires whenever the peripheral request is active
+// ---------------------------------------------------------------
+always @(posedge clk) begin
+  if (rst_n && per_req) begin
+    if (!$onehot(per_id))
+      $fatal(1, "[ONE-HOT FAIL] per_id is NOT one-hot at %0t ns: per_id=%b (we=%b addr=0x%08h)",
+             $time, per_id, per_we, per_add);
+    $display("  [per_req] per_id=%b  (we=%b  addr=0x%08h)  <- one-hot OK",
+             per_id, per_we, per_add);
+  end
+end
 
 // ---------------------------------------------------------------
 // Task: 4-beat AXI write  (aw_len=3, aw_size=3'b011 = 8 bytes)

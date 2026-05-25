@@ -1,20 +1,8 @@
-// Copyright 2018 ETH Zurich and University of Bologna.
-// Copyright and related rights are licensed under the Solderpad Hardware
-// License, Version 0.51 (the "License"); you may not use this file except in
-// compliance with the License. You may obtain a copy of the License at
-// http://solderpad.org/licenses/SHL-0.51. Unless required by applicable law
-// or agreed to in writing, software, hardware and materials distributed under
-// this License is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR
-// CONDITIONS OF ANY KIND, either express or implied. See the License for the
-// specific language governing permissions and limitations under the License.
-
-// Davide Rossi <davide.rossi@unibo.it>
-
 module axi2per_res_channel
 #(
-   // PARAMETERS
    parameter PER_ADDR_WIDTH = 32,
    parameter PER_ID_WIDTH   = 5,
+   parameter PER_DATA_WIDTH = 256,
    parameter AXI_ADDR_WIDTH = 32,
    parameter AXI_DATA_WIDTH = 64,
    parameter AXI_USER_WIDTH = 6,
@@ -23,17 +11,9 @@ module axi2per_res_channel
 (
    input  logic                      clk_i,
    input  logic                      rst_ni,
-
-   // PERIPHERAL INTERCONNECT MASTER
-   //***************************************
-   //RESPONSE CHANNEL
    input logic                       per_master_r_valid_i,
    input logic                       per_master_r_opc_i,
-   input logic [31:0]                per_master_r_rdata_i,
-
-   // AXI4 MASTER
-   //***************************************
-   // READ DATA CHANNEL
+   input logic [PER_DATA_WIDTH-1:0]  per_master_r_rdata_i,
    output logic                      axi_slave_r_valid_o,
    output logic [AXI_DATA_WIDTH-1:0] axi_slave_r_data_o,
    output logic [1:0]                axi_slave_r_resp_o,
@@ -41,157 +21,79 @@ module axi2per_res_channel
    output logic [AXI_ID_WIDTH-1:0]   axi_slave_r_id_o,
    output logic [AXI_USER_WIDTH-1:0] axi_slave_r_user_o,
    input  logic                      axi_slave_r_ready_i,
-
-   // WRITE RESPONSE CHANNEL
    output logic                      axi_slave_b_valid_o,
    output logic [1:0]                axi_slave_b_resp_o,
    output logic [AXI_ID_WIDTH-1:0]   axi_slave_b_id_o,
    output logic [AXI_USER_WIDTH-1:0] axi_slave_b_user_o,
    input  logic                      axi_slave_b_ready_i,
-
-   // CONTROL SIGNALS
    input logic                       trans_req_i,
    input logic                       trans_we_i,
    input logic [AXI_ID_WIDTH-1:0]    trans_id_i,
    input logic [AXI_ADDR_WIDTH-1:0]  trans_add_i,
+   input logic [7:0]                 trans_len_i,
    output logic                      trans_r_valid_o
 );
-   
-   logic [AXI_DATA_WIDTH-1:0]         s_axi_slave_r_data;
-   
-   logic [31:0]                       s_per_master_r_data;
-   
-   logic                              s_trans_we_buf;
-   logic [AXI_ID_WIDTH-1:0]           s_trans_id_buf;
-   logic                              s_trans_add_alignment;  //0 --> aligned to 64bit, 1--> not aligned to 64bit
-   
-   enum logic  { TRANS_IDLE, TRANS_PENDING } CS, NS;
-   
-   // UPDATE THE STATE
-   always_ff @(posedge clk_i, negedge rst_ni)
-     begin
-        if(rst_ni == 1'b0)
-          begin
-             CS <= TRANS_IDLE;
-          end
-        else
-          begin
-             CS <= NS;
-          end
-     end
-   
-   // COMPUTE NEXT STATE
-   always_comb
-     begin
-        
-        axi_slave_r_valid_o = '0;
-        axi_slave_r_data_o  = '0;
-        axi_slave_r_last_o  = '0;
-        axi_slave_r_id_o    = '0;
-        
-        axi_slave_b_valid_o = '0;
-        axi_slave_b_id_o    = '0;
-        
-        trans_r_valid_o     = '0;
-        
-        NS                  = TRANS_IDLE;
-        
-        case(CS)
-          
-          TRANS_IDLE:
-            if ( per_master_r_valid_i == 1'b1 ) // RESPONSE VALID FROM PERIPHERAL INTERCONNECT
-              begin
-                 if ( ( s_trans_we_buf == 1'b1 &&  // READ OPERATION
-                        axi_slave_r_ready_i == 1'b1 ) ||  // THE AXI READ BUFFER IS ABLE TO ACCEPT A TRANSACTION
-                      ( s_trans_we_buf == 1'b0 &&
-                        axi_slave_b_ready_i == 1'b1 ) )  // THE AXI WRITE RESPONSE BUFFER IS ABLE TO ACCEPT A TRANSACTION
-                   begin
-                      NS = TRANS_PENDING;
-                   end
-              end
-          
-          TRANS_PENDING:
-            if ( s_trans_we_buf == 1'b1 &&  // READ OPERATION
-                 axi_slave_r_ready_i == 1'b1 )  // THE AXI READ BUFFER IS ABLE TO ACCEPT A TRANSACTION
-              begin
-                 axi_slave_r_valid_o = 1'b1;
-                 axi_slave_r_last_o  = 1'b1;
-                 axi_slave_r_data_o  = s_axi_slave_r_data;
-                 axi_slave_r_id_o    = s_trans_id_buf;
-                 
-                 trans_r_valid_o     = 1'b1;
-                 
-                 NS = TRANS_IDLE;
-              end
-            else
-              if ( trans_we_i == 1'b0 &&
-                   axi_slave_b_ready_i == 1'b1 ) // THE AXI WRITE RESPONSE BUFFER IS ABLE TO ACCEPT A TRANSACTION
-                begin
-                   axi_slave_b_valid_o = 1'b1;
-                   axi_slave_b_id_o    = s_trans_id_buf;
-                   
-                   trans_r_valid_o     = 1'b1;
-                   
-                   NS = TRANS_IDLE;
-                end
-              else
-                begin
-                   NS = TRANS_PENDING;
-                end
-        endcase
-     end
-   
-   // STORES REQUEST ADDRESS BIT 2 TRANSFER TYPE AND THE ID WHEN A REQUEST OCCURS ON THE REQ CHANNEL
-   always_ff @ (posedge clk_i, negedge rst_ni)
-     begin
-        if (rst_ni == 1'b0)
-          begin
-             s_trans_we_buf        <= '0;
-             s_trans_add_alignment <= 1'b0;
-             s_trans_id_buf        <= '0;
-          end
-        else
-          begin
-             if(trans_req_i == 1'b1)
-               begin
-                  s_trans_we_buf        <= trans_we_i;
-                  s_trans_add_alignment <= trans_add_i[2];
-                  s_trans_id_buf        <= trans_id_i;
-               end
-          end
-     end
-   
-   // STORES RDATA WHEN RVALID SIGNAL IS ASSERTED
-   always_ff @ (posedge clk_i, negedge rst_ni)
-     if (rst_ni == 1'b0)
-       begin
-          s_per_master_r_data <= '0;
-       end
-     else
-       begin
-          if(per_master_r_valid_i == 1'b1)
-            begin
-               s_per_master_r_data <= per_master_r_rdata_i;
-            end
-       end
-   
-   // SELECT MSB OR LSBS OF DATA
-   always_comb
-     begin
-        if ( s_trans_add_alignment == 1'b0 )
-          begin
-             s_axi_slave_r_data = {32'b0,s_per_master_r_data};
-          end
-        else
-          begin
-             s_axi_slave_r_data = {s_per_master_r_data,32'b0};
-          end
-     end
-   
-   // UNUSED SIGNALS
-   assign axi_slave_r_resp_o = '0;
-   assign axi_slave_r_user_o = '0;
-   assign axi_slave_b_resp_o = '0;
-   assign axi_slave_b_user_o = '0;
-   
+localparam int unsigned AXI_BE_WIDTH = AXI_DATA_WIDTH/8;
+localparam int unsigned BEAT_RATIO   = (PER_DATA_WIDTH/AXI_DATA_WIDTH);
+localparam int unsigned SLOT_W       = (BEAT_RATIO > 1) ? $clog2(BEAT_RATIO) : 1;
+
+logic [PER_DATA_WIDTH-1:0] rdata_q;
+logic [AXI_ID_WIDTH-1:0] id_q;
+logic [7:0] len_q;
+logic is_read_q;
+logic [SLOT_W-1:0] base_slot_q;
+logic [7:0] beat_q;
+logic have_rsp_q;
+logic have_bresp_q;
+integer rd_slot;
+
+always_ff @(posedge clk_i or negedge rst_ni) begin
+ if(!rst_ni) begin
+  rdata_q<='0; id_q<='0; len_q<='0; is_read_q<=0; base_slot_q<='0; beat_q<='0; have_rsp_q<=0; have_bresp_q<=0;
+ end else begin
+  if(trans_req_i) begin
+    is_read_q <= trans_we_i;
+    id_q      <= trans_id_i;
+    len_q     <= trans_len_i;
+    beat_q    <= 0;
+    base_slot_q <= trans_add_i[$clog2(PER_DATA_WIDTH/8)-1:$clog2(AXI_BE_WIDTH)];
+  end
+  if(per_master_r_valid_i) begin
+    if(is_read_q) begin
+      rdata_q <= per_master_r_rdata_i;
+      have_rsp_q <= 1'b1;
+      beat_q <= 0;
+    end else begin
+      have_bresp_q <= 1'b1;
+    end
+  end
+  if(axi_slave_r_valid_o && axi_slave_r_ready_i) begin
+    if(axi_slave_r_last_o) have_rsp_q <= 1'b0;
+    else beat_q <= beat_q + 8'd1;
+  end
+  if(axi_slave_b_valid_o && axi_slave_b_ready_i) have_bresp_q <= 1'b0;
+ end
+end
+
+always_comb begin
+ axi_slave_r_valid_o=0; axi_slave_r_data_o='0; axi_slave_r_last_o=0; axi_slave_r_id_o=id_q;
+ axi_slave_b_valid_o=0; axi_slave_b_id_o=id_q;
+ trans_r_valid_o=0;
+ if(is_read_q) begin
+   if(have_rsp_q) begin
+      rd_slot = base_slot_q + beat_q;
+      axi_slave_r_valid_o=1;
+      if(rd_slot < BEAT_RATIO) axi_slave_r_data_o = rdata_q[rd_slot*AXI_DATA_WIDTH +: AXI_DATA_WIDTH];
+      axi_slave_r_last_o = (beat_q == len_q);
+      if(axi_slave_r_valid_o && axi_slave_r_ready_i && axi_slave_r_last_o) trans_r_valid_o=1;
+   end
+ end else begin
+   axi_slave_b_valid_o = have_bresp_q;
+   if(have_bresp_q && axi_slave_b_ready_i) trans_r_valid_o=1;
+ end
+end
+assign axi_slave_r_resp_o='0;
+assign axi_slave_r_user_o='0;
+assign axi_slave_b_resp_o='0;
+assign axi_slave_b_user_o='0;
 endmodule

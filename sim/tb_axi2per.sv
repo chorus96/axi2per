@@ -1,18 +1,18 @@
 `timescale 1ns/1ps
-// Test configuration: PER_DATA_WIDTH=256, AXI_DATA_WIDTH=64, 4-beat AXI bursts
-// BEAT_RATIO = 256/64 = 4  →  one peripheral 256-bit word = four 64-bit AXI beats
+// Test configuration: PER_DATA_WIDTH=512, AXI_DATA_WIDTH=128, 4-beat AXI bursts
+// BEAT_RATIO = 512/128 = 4  →  one peripheral 512-bit word = four 128-bit AXI beats
 // ID encoding : AXI_ID_WIDTH bits binary  ↔  PER_ID_WIDTH bits one-hot
 //   PER_ID_WIDTH = 2^AXI_ID_WIDTH so every binary ID maps to a unique one-hot bit
 module tb_axi2per;
 localparam int unsigned PER_ADDR_WIDTH = 32;
-localparam int unsigned PER_DATA_WIDTH = 256;
+localparam int unsigned PER_DATA_WIDTH = 512;
 localparam int unsigned AXI_ADDR_WIDTH = 32;
-localparam int unsigned AXI_DATA_WIDTH = 64;
+localparam int unsigned AXI_DATA_WIDTH = 128;
 localparam int unsigned AXI_USER_WIDTH = 6;
 localparam int unsigned AXI_ID_WIDTH   = 3;
-localparam int unsigned PER_ID_WIDTH   = 2**AXI_ID_WIDTH; // one-hot: 8 bits for 3-bit binary IDs
+localparam int unsigned PER_ID_WIDTH   = 2**AXI_ID_WIDTH; // one-hot: 8 bits
 localparam int unsigned BUFFER_DEPTH   = 2;
-localparam int unsigned AXI_STRB_WIDTH = AXI_DATA_WIDTH/8;  // 8
+localparam int unsigned AXI_STRB_WIDTH = AXI_DATA_WIDTH/8;  // 16
 
 // Clock & reset
 logic clk=0;
@@ -34,20 +34,20 @@ logic [AXI_ID_WIDTH-1:0] r_id; logic r_ready=1;
 logic b_valid; logic [AXI_ID_WIDTH-1:0] b_id; logic b_ready=1;
 
 // Peripheral signals
-logic                      per_req;
-logic [PER_ADDR_WIDTH-1:0] per_add;
-logic                      per_we;
-logic [PER_DATA_WIDTH-1:0] per_wdata;
+logic                        per_req;
+logic [PER_ADDR_WIDTH-1:0]   per_add;
+logic                        per_we;
+logic [PER_DATA_WIDTH-1:0]   per_wdata;
 logic [PER_DATA_WIDTH/8-1:0] per_be;
-logic [PER_ID_WIDTH-1:0]   per_id;     // one-hot encoded
-logic [AXI_USER_WIDTH-1:0] per_user;
-logic                      per_gnt;
-logic                      per_r_valid;
-logic                      per_r_opc;
-logic [PER_DATA_WIDTH-1:0] per_r_rdata;
-logic [PER_ID_WIDTH-1:0]   per_r_id;   // one-hot encoded
-logic [AXI_USER_WIDTH-1:0] per_r_user;
-logic                      busy;
+logic [PER_ID_WIDTH-1:0]     per_id;     // one-hot encoded
+logic [AXI_USER_WIDTH-1:0]   per_user;
+logic                        per_gnt;
+logic                        per_r_valid;
+logic                        per_r_opc;
+logic [PER_DATA_WIDTH-1:0]   per_r_rdata;
+logic [PER_ID_WIDTH-1:0]     per_r_id;   // one-hot encoded
+logic [AXI_USER_WIDTH-1:0]   per_r_user;
+logic                        busy;
 
 // DUT
 axi2per #(
@@ -127,19 +127,20 @@ always @(posedge clk) begin
 end
 
 // ---------------------------------------------------------------
-// Task: 4-beat AXI write  (aw_len=3, aw_size=3'b011 = 8 bytes)
-// Writes four consecutive 64-bit beats that together fill one
-// 256-bit peripheral word at 'addr' (must be 32-byte aligned).
+// Task: 4-beat AXI write  (aw_len=3, aw_size=3'b100 = 16 bytes)
+// Writes four consecutive 128-bit beats that together fill one
+// 512-bit peripheral word at 'addr' (must be 64-byte aligned:
+// addr[5:4]==0 so base_slot=0 and all four slots 0-3 fit).
 // ---------------------------------------------------------------
 task burst_write4(
-  input [31:0] addr,
-  input [63:0] d0, d1, d2, d3,
-  input [2:0]  id
+  input [31:0]           addr,
+  input [127:0]          d0, d1, d2, d3,
+  input [AXI_ID_WIDTH-1:0] id
 );
 begin
   @(posedge clk);
   aw_valid<=1; aw_addr<=addr; aw_len<=8'd3;
-  aw_size<=3'b011; aw_burst<=2'b01; aw_id<=id;
+  aw_size<=3'b100; aw_burst<=2'b01; aw_id<=id;
   wait(aw_ready); @(posedge clk); aw_valid<=0;
 
   w_valid<=1; w_strb<='1;
@@ -155,20 +156,20 @@ end
 endtask
 
 // ---------------------------------------------------------------
-// Task: 4-beat AXI read  (ar_len=3, ar_size=3'b011 = 8 bytes)
-// Reads four 64-bit beats and checks against expected values.
+// Task: 4-beat AXI read  (ar_len=3, ar_size=3'b100 = 16 bytes)
+// Reads four 128-bit beats and checks against expected values.
 // ---------------------------------------------------------------
 task burst_read4(
-  input [31:0] addr,
-  input [63:0] e0, e1, e2, e3,
-  input [2:0]  id
+  input [31:0]           addr,
+  input [127:0]          e0, e1, e2, e3,
+  input [AXI_ID_WIDTH-1:0] id
 );
-  reg [63:0] got [0:3];
-  int        i;
+  reg [127:0] got [0:3];
+  int         i;
 begin
   @(posedge clk);
   ar_valid<=1; ar_addr<=addr; ar_len<=8'd3;
-  ar_size<=3'b011; ar_burst<=2'b01; ar_id<=id;
+  ar_size<=3'b100; ar_burst<=2'b01; ar_id<=id;
   wait(ar_ready); @(posedge clk); ar_valid<=0;
 
   for (i = 0; i < 4; i++) begin
@@ -197,58 +198,58 @@ initial begin
   wait(rst_n);
 
   // ----------------------------------------------------------
-  // Test 1: write 256-bit word at 0x0040, read it back
-  //   beat0 → bits  63:0   = 64'h1111_1111_1111_1111
-  //   beat1 → bits 127:64  = 64'h2222_2222_2222_2222
-  //   beat2 → bits 191:128 = 64'h3333_3333_3333_3333
-  //   beat3 → bits 255:192 = 64'h4444_4444_4444_4444
-  // ----------------------------------------------------------
-  burst_write4(32'h0000_0040,
-               64'h1111_1111_1111_1111,
-               64'h2222_2222_2222_2222,
-               64'h3333_3333_3333_3333,
-               64'h4444_4444_4444_4444,
-               3'd1);
-
-  burst_read4(32'h0000_0040,
-              64'h1111_1111_1111_1111,
-              64'h2222_2222_2222_2222,
-              64'h3333_3333_3333_3333,
-              64'h4444_4444_4444_4444,
-              3'd1);
-  $display("PASS  [test 1] 256-bit / 64-bit 4-beat burst write+read @ 0x0040");
-
-  // ----------------------------------------------------------
-  // Test 2: different address (0x0080) and different ID
-  //   Verifies independent memory location and ID passthrough
+  // Test 1: write 512-bit word at 0x0080 (64-byte aligned),
+  //         read it back.
+  //   beat0 → bits 127:0   = 128'h1111...
+  //   beat1 → bits 255:128 = 128'h2222...
+  //   beat2 → bits 383:256 = 128'h3333...
+  //   beat3 → bits 511:384 = 128'h4444...
   // ----------------------------------------------------------
   burst_write4(32'h0000_0080,
-               64'hAAAA_BBBB_CCCC_DDDD,
-               64'hEEEE_FFFF_0000_1111,
-               64'h2222_3333_4444_5555,
-               64'h6666_7777_8888_9999,
-               3'd5);
+    128'h1111_1111_1111_1111_1111_1111_1111_1111,
+    128'h2222_2222_2222_2222_2222_2222_2222_2222,
+    128'h3333_3333_3333_3333_3333_3333_3333_3333,
+    128'h4444_4444_4444_4444_4444_4444_4444_4444,
+    3'd1);
 
   burst_read4(32'h0000_0080,
-              64'hAAAA_BBBB_CCCC_DDDD,
-              64'hEEEE_FFFF_0000_1111,
-              64'h2222_3333_4444_5555,
-              64'h6666_7777_8888_9999,
-              3'd5);
-  $display("PASS  [test 2] 256-bit / 64-bit 4-beat burst write+read @ 0x0080 (id=5)");
+    128'h1111_1111_1111_1111_1111_1111_1111_1111,
+    128'h2222_2222_2222_2222_2222_2222_2222_2222,
+    128'h3333_3333_3333_3333_3333_3333_3333_3333,
+    128'h4444_4444_4444_4444_4444_4444_4444_4444,
+    3'd1);
+  $display("PASS  [test 1] 512-bit / 128-bit 4-beat burst write+read @ 0x0080");
 
   // ----------------------------------------------------------
-  // Test 3: verify test-1 location is untouched after test-2
+  // Test 2: different address (0x0100, 64-byte aligned) and ID
   // ----------------------------------------------------------
-  burst_read4(32'h0000_0040,
-              64'h1111_1111_1111_1111,
-              64'h2222_2222_2222_2222,
-              64'h3333_3333_3333_3333,
-              64'h4444_4444_4444_4444,
-              3'd2);
-  $display("PASS  [test 3] Re-read @ 0x0040 unchanged after write to 0x0080");
+  burst_write4(32'h0000_0100,
+    128'hAAAA_BBBB_CCCC_DDDD_EEEE_FFFF_0000_1111,
+    128'h2222_3333_4444_5555_6666_7777_8888_9999,
+    128'hDEAD_BEEF_CAFE_BABE_1234_5678_9ABC_DEF0,
+    128'hFEED_FACE_C0FF_EE00_0102_0304_0506_0708,
+    3'd5);
 
-  $display("ALL TESTS PASSED: PER_DATA_WIDTH=256 / AXI_DATA_WIDTH=64 / 4-beat burst");
+  burst_read4(32'h0000_0100,
+    128'hAAAA_BBBB_CCCC_DDDD_EEEE_FFFF_0000_1111,
+    128'h2222_3333_4444_5555_6666_7777_8888_9999,
+    128'hDEAD_BEEF_CAFE_BABE_1234_5678_9ABC_DEF0,
+    128'hFEED_FACE_C0FF_EE00_0102_0304_0506_0708,
+    3'd5);
+  $display("PASS  [test 2] 512-bit / 128-bit 4-beat burst write+read @ 0x0100 (id=5)");
+
+  // ----------------------------------------------------------
+  // Test 3: re-read 0x0080 to confirm it is unchanged
+  // ----------------------------------------------------------
+  burst_read4(32'h0000_0080,
+    128'h1111_1111_1111_1111_1111_1111_1111_1111,
+    128'h2222_2222_2222_2222_2222_2222_2222_2222,
+    128'h3333_3333_3333_3333_3333_3333_3333_3333,
+    128'h4444_4444_4444_4444_4444_4444_4444_4444,
+    3'd2);
+  $display("PASS  [test 3] Re-read @ 0x0080 unchanged after write to 0x0100");
+
+  $display("ALL TESTS PASSED: PER_DATA_WIDTH=512 / AXI_DATA_WIDTH=128 / 4-beat burst");
   $finish;
 end
 

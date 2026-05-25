@@ -1,8 +1,7 @@
 `timescale 1ns/1ps
 // Test configuration: PER_DATA_WIDTH=512, AXI_DATA_WIDTH=128, 4-beat AXI bursts
 // BEAT_RATIO = 512/128 = 4  →  one peripheral 512-bit word = four 128-bit AXI beats
-// ID encoding : AXI_ID_WIDTH bits binary  ↔  PER_ID_WIDTH bits one-hot
-//   PER_ID_WIDTH = 2^AXI_ID_WIDTH so every binary ID maps to a unique one-hot bit
+// Verifies: data, ID (one-hot), and USER field propagation through axi2per
 module tb_axi2per;
 localparam int unsigned PER_ADDR_WIDTH = 32;
 localparam int unsigned PER_DATA_WIDTH = 512;
@@ -24,14 +23,21 @@ initial begin rst_n=0; repeat(4) @(posedge clk); rst_n=1; end
 
 // AXI signals
 logic aw_valid; logic [AXI_ADDR_WIDTH-1:0] aw_addr; logic [7:0] aw_len;
-logic [2:0] aw_size; logic [1:0] aw_burst; logic [AXI_ID_WIDTH-1:0] aw_id; logic aw_ready;
+logic [2:0] aw_size; logic [1:0] aw_burst; logic [AXI_ID_WIDTH-1:0] aw_id;
+logic [AXI_USER_WIDTH-1:0] aw_user; logic aw_ready;
+
 logic ar_valid; logic [AXI_ADDR_WIDTH-1:0] ar_addr; logic [7:0] ar_len;
-logic [2:0] ar_size; logic [1:0] ar_burst; logic [AXI_ID_WIDTH-1:0] ar_id; logic ar_ready;
+logic [2:0] ar_size; logic [1:0] ar_burst; logic [AXI_ID_WIDTH-1:0] ar_id;
+logic [AXI_USER_WIDTH-1:0] ar_user; logic ar_ready;
+
 logic w_valid; logic [AXI_DATA_WIDTH-1:0] w_data; logic [AXI_STRB_WIDTH-1:0] w_strb;
 logic w_last; logic w_ready;
+
 logic r_valid; logic [AXI_DATA_WIDTH-1:0] r_data; logic r_last;
-logic [AXI_ID_WIDTH-1:0] r_id; logic r_ready=1;
-logic b_valid; logic [AXI_ID_WIDTH-1:0] b_id; logic b_ready=1;
+logic [AXI_ID_WIDTH-1:0] r_id; logic [AXI_USER_WIDTH-1:0] r_user; logic r_ready=1;
+
+logic b_valid; logic [AXI_ID_WIDTH-1:0] b_id;
+logic [AXI_USER_WIDTH-1:0] b_user; logic b_ready=1;
 
 // Peripheral signals
 logic                        per_req;
@@ -40,13 +46,13 @@ logic                        per_we;
 logic [PER_DATA_WIDTH-1:0]   per_wdata;
 logic [PER_DATA_WIDTH/8-1:0] per_be;
 logic [PER_ID_WIDTH-1:0]     per_id;     // one-hot encoded
-logic [AXI_USER_WIDTH-1:0]   per_user;
+logic [AXI_USER_WIDTH-1:0]   per_user;   // forwarded user field
 logic                        per_gnt;
 logic                        per_r_valid;
 logic                        per_r_opc;
 logic [PER_DATA_WIDTH-1:0]   per_r_rdata;
-logic [PER_ID_WIDTH-1:0]     per_r_id;   // one-hot encoded
-logic [AXI_USER_WIDTH-1:0]   per_r_user;
+logic [PER_ID_WIDTH-1:0]     per_r_id;
+logic [AXI_USER_WIDTH-1:0]   per_r_user; // echoed user from peripheral
 logic                        busy;
 
 // DUT
@@ -64,7 +70,7 @@ axi2per #(
   .axi_slave_aw_len_i(aw_len), .axi_slave_aw_size_i(aw_size),
   .axi_slave_aw_burst_i(aw_burst), .axi_slave_aw_lock_i('0),
   .axi_slave_aw_cache_i('0), .axi_slave_aw_qos_i('0),
-  .axi_slave_aw_id_i(aw_id), .axi_slave_aw_user_i('0),
+  .axi_slave_aw_id_i(aw_id), .axi_slave_aw_user_i(aw_user),   // ← user connected
   .axi_slave_aw_ready_o(aw_ready),
   // AR
   .axi_slave_ar_valid_i(ar_valid), .axi_slave_ar_addr_i(ar_addr),
@@ -72,7 +78,7 @@ axi2per #(
   .axi_slave_ar_len_i(ar_len), .axi_slave_ar_size_i(ar_size),
   .axi_slave_ar_burst_i(ar_burst), .axi_slave_ar_lock_i('0),
   .axi_slave_ar_cache_i('0), .axi_slave_ar_qos_i('0),
-  .axi_slave_ar_id_i(ar_id), .axi_slave_ar_user_i('0),
+  .axi_slave_ar_id_i(ar_id), .axi_slave_ar_user_i(ar_user),   // ← user connected
   .axi_slave_ar_ready_o(ar_ready),
   // W
   .axi_slave_w_valid_i(w_valid), .axi_slave_w_data_i(w_data),
@@ -81,11 +87,11 @@ axi2per #(
   // R
   .axi_slave_r_valid_o(r_valid), .axi_slave_r_data_o(r_data),
   .axi_slave_r_resp_o(), .axi_slave_r_last_o(r_last),
-  .axi_slave_r_id_o(r_id), .axi_slave_r_user_o(),
+  .axi_slave_r_id_o(r_id), .axi_slave_r_user_o(r_user),       // ← user connected
   .axi_slave_r_ready_i(r_ready),
   // B
   .axi_slave_b_valid_o(b_valid), .axi_slave_b_resp_o(),
-  .axi_slave_b_id_o(b_id), .axi_slave_b_user_o(),
+  .axi_slave_b_id_o(b_id), .axi_slave_b_user_o(b_user),       // ← user connected
   .axi_slave_b_ready_i(b_ready),
   // Peripheral master
   .per_master_req_o(per_req), .per_master_add_o(per_add),
@@ -114,33 +120,33 @@ per_slave_model #(
 );
 
 // ---------------------------------------------------------------
-// One-hot ID checker: fires whenever the peripheral request is active
+// Peripheral-side monitor: per_req 사이클마다 ID/USER 출력
 // ---------------------------------------------------------------
 always @(posedge clk) begin
   if (rst_n && per_req) begin
     if (!$onehot(per_id))
       $fatal(1, "[ONE-HOT FAIL] per_id is NOT one-hot at %0t ns: per_id=%b (we=%b addr=0x%08h)",
              $time, per_id, per_we, per_add);
-    $display("  [per_req] per_id=%b  (we=%b  addr=0x%08h)  <- one-hot OK",
-             per_id, per_we, per_add);
+    $display("  [per_req] per_id=%b  per_user=0x%02h  (we=%b  addr=0x%08h)",
+             per_id, per_user, per_we, per_add);
   end
 end
 
 // ---------------------------------------------------------------
-// Task: 4-beat AXI write  (aw_len=3, aw_size=3'b100 = 16 bytes)
-// Writes four consecutive 128-bit beats that together fill one
-// 512-bit peripheral word at 'addr' (must be 64-byte aligned:
-// addr[5:4]==0 so base_slot=0 and all four slots 0-3 fit).
+// Task: 4-beat AXI write with USER field verification
+//   aw_user → per_master_user_o → peripheral echoes →
+//   per_master_r_user_i → axi_slave_b_user_o
 // ---------------------------------------------------------------
 task burst_write4(
-  input [31:0]           addr,
-  input [127:0]          d0, d1, d2, d3,
-  input [AXI_ID_WIDTH-1:0] id
+  input [31:0]               addr,
+  input [127:0]              d0, d1, d2, d3,
+  input [AXI_ID_WIDTH-1:0]   id,
+  input [AXI_USER_WIDTH-1:0] user
 );
 begin
   @(posedge clk);
   aw_valid<=1; aw_addr<=addr; aw_len<=8'd3;
-  aw_size<=3'b100; aw_burst<=2'b01; aw_id<=id;
+  aw_size<=3'b100; aw_burst<=2'b01; aw_id<=id; aw_user<=user;
   wait(aw_ready); @(posedge clk); aw_valid<=0;
 
   w_valid<=1; w_strb<='1;
@@ -151,25 +157,31 @@ begin
   w_valid<=0; w_last<=0;
 
   wait(b_valid);
-  if (b_id !== id) $fatal(1,"[WRITE] BID mismatch: got %0d expected %0d", b_id, id);
+  if (b_id !== id)
+    $fatal(1,"[WRITE] BID mismatch: got %0d expected %0d", b_id, id);
+  if (b_user !== user)
+    $fatal(1,"[WRITE] BUSER mismatch: got 0x%02h expected 0x%02h", b_user, user);
+  $display("    b_user=0x%02h  <- matches aw_user=0x%02h  OK", b_user, user);
 end
 endtask
 
 // ---------------------------------------------------------------
-// Task: 4-beat AXI read  (ar_len=3, ar_size=3'b100 = 16 bytes)
-// Reads four 128-bit beats and checks against expected values.
+// Task: 4-beat AXI read with USER field verification
+//   ar_user → per_master_user_o → peripheral echoes →
+//   per_master_r_user_i → axi_slave_r_user_o (all beats)
 // ---------------------------------------------------------------
 task burst_read4(
-  input [31:0]           addr,
-  input [127:0]          e0, e1, e2, e3,
-  input [AXI_ID_WIDTH-1:0] id
+  input [31:0]               addr,
+  input [127:0]              e0, e1, e2, e3,
+  input [AXI_ID_WIDTH-1:0]   id,
+  input [AXI_USER_WIDTH-1:0] user
 );
   reg [127:0] got [0:3];
   int         i;
 begin
   @(posedge clk);
   ar_valid<=1; ar_addr<=addr; ar_len<=8'd3;
-  ar_size<=3'b100; ar_burst<=2'b01; ar_id<=id;
+  ar_size<=3'b100; ar_burst<=2'b01; ar_id<=id; ar_user<=user;
   wait(ar_ready); @(posedge clk); ar_valid<=0;
 
   for (i = 0; i < 4; i++) begin
@@ -178,7 +190,11 @@ begin
     got[i] = r_data;
     if (r_id !== id)
       $fatal(1,"[READ beat %0d] RID mismatch: got %0d expected %0d", i, r_id, id);
+    if (r_user !== user)
+      $fatal(1,"[READ beat %0d] RUSER mismatch: got 0x%02h expected 0x%02h",
+             i, r_user, user);
   end
+  $display("    r_user=0x%02h  <- matches ar_user=0x%02h  OK (all 4 beats)", r_user, user);
 
   if (got[0] !== e0 || got[1] !== e1 || got[2] !== e2 || got[3] !== e3)
     $fatal(1,
@@ -191,65 +207,67 @@ endtask
 // Stimulus
 // ---------------------------------------------------------------
 initial begin
-  aw_valid=0; aw_addr=0; aw_len=0; aw_size=0; aw_burst=0; aw_id=0;
-  ar_valid=0; ar_addr=0; ar_len=0; ar_size=0; ar_burst=0; ar_id=0;
+  aw_valid=0; aw_addr=0; aw_len=0; aw_size=0; aw_burst=0; aw_id=0; aw_user=0;
+  ar_valid=0; ar_addr=0; ar_len=0; ar_size=0; ar_burst=0; ar_id=0; ar_user=0;
   w_valid=0;  w_data=0;  w_strb=0; w_last=0;
 
   wait(rst_n);
 
   // ----------------------------------------------------------
-  // Test 1: write 512-bit word at 0x0080 (64-byte aligned),
-  //         read it back.
-  //   beat0 → bits 127:0   = 128'h1111...
-  //   beat1 → bits 255:128 = 128'h2222...
-  //   beat2 → bits 383:256 = 128'h3333...
-  //   beat3 → bits 511:384 = 128'h4444...
+  // Test 1: write with aw_user=6'h15, read with ar_user=6'h15
+  //   Verify b_user==0x15 and r_user==0x15 on all beats
   // ----------------------------------------------------------
+  $display("\n--- Test 1: aw_user=0x15, ar_user=0x15 ---");
   burst_write4(32'h0000_0080,
     128'h1111_1111_1111_1111_1111_1111_1111_1111,
     128'h2222_2222_2222_2222_2222_2222_2222_2222,
     128'h3333_3333_3333_3333_3333_3333_3333_3333,
     128'h4444_4444_4444_4444_4444_4444_4444_4444,
-    3'd1);
+    3'd1, 6'h15);
 
   burst_read4(32'h0000_0080,
     128'h1111_1111_1111_1111_1111_1111_1111_1111,
     128'h2222_2222_2222_2222_2222_2222_2222_2222,
     128'h3333_3333_3333_3333_3333_3333_3333_3333,
     128'h4444_4444_4444_4444_4444_4444_4444_4444,
-    3'd1);
-  $display("PASS  [test 1] 512-bit / 128-bit 4-beat burst write+read @ 0x0080");
+    3'd1, 6'h15);
+  $display("PASS  [test 1] user=0x15 write+read @ 0x0080 (id=1)");
 
   // ----------------------------------------------------------
-  // Test 2: different address (0x0100, 64-byte aligned) and ID
+  // Test 2: different address, different user and ID
+  //   Verify user values are independent per transaction
   // ----------------------------------------------------------
+  $display("\n--- Test 2: aw_user=0x2A, ar_user=0x2A, id=5 ---");
   burst_write4(32'h0000_0100,
     128'hAAAA_BBBB_CCCC_DDDD_EEEE_FFFF_0000_1111,
     128'h2222_3333_4444_5555_6666_7777_8888_9999,
     128'hDEAD_BEEF_CAFE_BABE_1234_5678_9ABC_DEF0,
     128'hFEED_FACE_C0FF_EE00_0102_0304_0506_0708,
-    3'd5);
+    3'd5, 6'h2A);
 
   burst_read4(32'h0000_0100,
     128'hAAAA_BBBB_CCCC_DDDD_EEEE_FFFF_0000_1111,
     128'h2222_3333_4444_5555_6666_7777_8888_9999,
     128'hDEAD_BEEF_CAFE_BABE_1234_5678_9ABC_DEF0,
     128'hFEED_FACE_C0FF_EE00_0102_0304_0506_0708,
-    3'd5);
-  $display("PASS  [test 2] 512-bit / 128-bit 4-beat burst write+read @ 0x0100 (id=5)");
+    3'd5, 6'h2A);
+  $display("PASS  [test 2] user=0x2A write+read @ 0x0100 (id=5)");
 
   // ----------------------------------------------------------
-  // Test 3: re-read 0x0080 to confirm it is unchanged
+  // Test 3: read back test-1 address with different ar_user=0x3F
+  //   Verifies that the USER field is driven by the requester,
+  //   not stored from the previous transaction
   // ----------------------------------------------------------
+  $display("\n--- Test 3: re-read 0x0080 with ar_user=0x3F, id=2 ---");
   burst_read4(32'h0000_0080,
     128'h1111_1111_1111_1111_1111_1111_1111_1111,
     128'h2222_2222_2222_2222_2222_2222_2222_2222,
     128'h3333_3333_3333_3333_3333_3333_3333_3333,
     128'h4444_4444_4444_4444_4444_4444_4444_4444,
-    3'd2);
-  $display("PASS  [test 3] Re-read @ 0x0080 unchanged after write to 0x0100");
+    3'd2, 6'h3F);
+  $display("PASS  [test 3] user=0x3F re-read @ 0x0080 (id=2)");
 
-  $display("ALL TESTS PASSED: PER_DATA_WIDTH=512 / AXI_DATA_WIDTH=128 / 4-beat burst");
+  $display("\nALL TESTS PASSED: user field correctly propagated AXI ↔ peripheral");
   $finish;
 end
 

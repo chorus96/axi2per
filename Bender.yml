@@ -10,3 +10,9 @@ sources:
   - axi2per_res_channel.sv
   # Level 1
   - axi2per.sv
+
+  # Simulation-only sources (tb target)
+  - target: simulation
+    files:
+      - sim/per_slave_model.sv
+      - sim/tb_axi2per.sv

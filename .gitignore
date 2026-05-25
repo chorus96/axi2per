@@ -4,3 +4,6 @@
 build
 /Bender.lock
 /Bender.local
+# Simulation outputs
+sim/*.vcd
+sim/*.fst

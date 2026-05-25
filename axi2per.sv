@@ -14,6 +14,7 @@ module axi2per
 #(
    parameter PER_ADDR_WIDTH = 32,
    parameter PER_ID_WIDTH   = 5,
+   parameter PER_DATA_WIDTH = 256,
    parameter AXI_ADDR_WIDTH = 32,
    parameter AXI_DATA_WIDTH = 64,
    parameter AXI_USER_WIDTH = 6,
@@ -88,14 +89,14 @@ module axi2per
    output logic                      per_master_req_o,
    output logic [PER_ADDR_WIDTH-1:0] per_master_add_o,
    output logic                      per_master_we_no,
-   output logic [31:0]               per_master_wdata_o,
-   output logic [3:0]                per_master_be_o,
+   output logic [PER_DATA_WIDTH-1:0] per_master_wdata_o,
+   output logic [PER_DATA_WIDTH/8-1:0] per_master_be_o,
    input  logic                      per_master_gnt_i,
 
    //RESPONSE CHANNEL
    input logic                       per_master_r_valid_i,
    input logic                       per_master_r_opc_i,
-   input logic [31:0]                per_master_r_rdata_i,
+   input logic [PER_DATA_WIDTH-1:0]  per_master_r_rdata_i,
 
    // BUSY SIGNAL
    output logic                      busy_o
@@ -155,12 +156,14 @@ module axi2per
    logic                              s_trans_we;
    logic [AXI_ID_WIDTH-1:0]           s_trans_id;
    logic [AXI_ADDR_WIDTH-1:0]         s_trans_add;
+   logic [7:0]                        s_trans_len;
    logic                              s_trans_r_valid;
      
    // AXI2PER REQUEST CHANNEL
    axi2per_req_channel
    #(
       .PER_ADDR_WIDTH        ( PER_ADDR_WIDTH      ),
+      .PER_DATA_WIDTH        ( PER_DATA_WIDTH      ),
       .AXI_ADDR_WIDTH        ( AXI_ADDR_WIDTH      ),
       .AXI_DATA_WIDTH        ( AXI_DATA_WIDTH      ),
       .AXI_USER_WIDTH        ( AXI_USER_WIDTH      ),
@@ -217,6 +220,7 @@ module axi2per
       .trans_we_o            ( s_trans_we          ),
       .trans_id_o            ( s_trans_id          ),
       .trans_add_o           ( s_trans_add         ),
+      .trans_len_o           ( s_trans_len         ),
       .trans_r_valid_i       ( s_trans_r_valid     ),
 
       .busy_o                ( busy_o              )
@@ -226,6 +230,7 @@ module axi2per
    axi2per_res_channel
    #(
       .PER_ADDR_WIDTH       ( PER_ADDR_WIDTH       ),
+      .PER_DATA_WIDTH       ( PER_DATA_WIDTH       ),
       .AXI_ADDR_WIDTH       ( AXI_ADDR_WIDTH       ),
       .AXI_DATA_WIDTH       ( AXI_DATA_WIDTH       ),
       .AXI_USER_WIDTH       ( AXI_USER_WIDTH       ),
@@ -258,6 +263,7 @@ module axi2per
       .trans_we_i           ( s_trans_we           ),
       .trans_id_i           ( s_trans_id           ),
       .trans_add_i          ( s_trans_add          ),
+      .trans_len_i          ( s_trans_len          ),
       .trans_r_valid_o      ( s_trans_r_valid      )
    );
    

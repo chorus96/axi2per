@@ -15,7 +15,7 @@ logic ar_valid; logic [AXI_ADDR_WIDTH-1:0] ar_addr; logic [7:0] ar_len; logic [2
 logic w_valid; logic [AXI_DATA_WIDTH-1:0] w_data; logic [AXI_STRB_WIDTH-1:0] w_strb; logic w_last; logic w_ready;
 logic r_valid; logic [AXI_DATA_WIDTH-1:0] r_data; logic r_last; logic [AXI_ID_WIDTH-1:0] r_id; logic r_ready=1;
 logic b_valid; logic [AXI_ID_WIDTH-1:0] b_id; logic b_ready=1;
-logic per_req; logic [PER_ADDR_WIDTH-1:0] per_add; logic per_we_n; logic [PER_DATA_WIDTH-1:0] per_wdata; logic [PER_DATA_WIDTH/8-1:0] per_be; logic per_gnt; logic per_r_valid; logic per_r_opc; logic [PER_DATA_WIDTH-1:0] per_r_rdata; logic busy;
+logic per_req; logic [PER_ADDR_WIDTH-1:0] per_add; logic per_we; logic [PER_DATA_WIDTH-1:0] per_wdata; logic [PER_DATA_WIDTH/8-1:0] per_be; logic [4:0] per_id; logic [AXI_USER_WIDTH-1:0] per_user; logic per_gnt; logic per_r_valid; logic per_r_opc; logic [PER_DATA_WIDTH-1:0] per_r_rdata; logic [4:0] per_r_id; logic [AXI_USER_WIDTH-1:0] per_r_user; logic busy;
 axi2per #(.PER_ADDR_WIDTH(PER_ADDR_WIDTH),.PER_DATA_WIDTH(PER_DATA_WIDTH),.AXI_ADDR_WIDTH(AXI_ADDR_WIDTH),.AXI_DATA_WIDTH(AXI_DATA_WIDTH),.AXI_USER_WIDTH(AXI_USER_WIDTH),.AXI_ID_WIDTH(AXI_ID_WIDTH),.BUFFER_DEPTH(BUFFER_DEPTH)) dut(
 .clk_i(clk),.rst_ni(rst_n),.test_en_i(1'b0),
 .axi_slave_aw_valid_i(aw_valid),.axi_slave_aw_addr_i(aw_addr),.axi_slave_aw_prot_i('0),.axi_slave_aw_region_i('0),.axi_slave_aw_len_i(aw_len),.axi_slave_aw_size_i(aw_size),.axi_slave_aw_burst_i(aw_burst),.axi_slave_aw_lock_i('0),.axi_slave_aw_cache_i('0),.axi_slave_aw_qos_i('0),.axi_slave_aw_id_i(aw_id),.axi_slave_aw_user_i('0),.axi_slave_aw_ready_o(aw_ready),
@@ -23,9 +23,9 @@ axi2per #(.PER_ADDR_WIDTH(PER_ADDR_WIDTH),.PER_DATA_WIDTH(PER_DATA_WIDTH),.AXI_A
 .axi_slave_w_valid_i(w_valid),.axi_slave_w_data_i(w_data),.axi_slave_w_strb_i(w_strb),.axi_slave_w_user_i('0),.axi_slave_w_last_i(w_last),.axi_slave_w_ready_o(w_ready),
 .axi_slave_r_valid_o(r_valid),.axi_slave_r_data_o(r_data),.axi_slave_r_resp_o(),.axi_slave_r_last_o(r_last),.axi_slave_r_id_o(r_id),.axi_slave_r_user_o(),.axi_slave_r_ready_i(r_ready),
 .axi_slave_b_valid_o(b_valid),.axi_slave_b_resp_o(),.axi_slave_b_id_o(b_id),.axi_slave_b_user_o(),.axi_slave_b_ready_i(b_ready),
-.per_master_req_o(per_req),.per_master_add_o(per_add),.per_master_we_no(per_we_n),.per_master_wdata_o(per_wdata),.per_master_be_o(per_be),.per_master_gnt_i(per_gnt),
-.per_master_r_valid_i(per_r_valid),.per_master_r_opc_i(per_r_opc),.per_master_r_rdata_i(per_r_rdata),.busy_o(busy));
-per_slave_model #(.ADDR_WIDTH(PER_ADDR_WIDTH),.DATA_WIDTH(PER_DATA_WIDTH),.MEM_WORDS(256),.RESP_DELAY(1)) per(.clk_i(clk),.rst_ni(rst_n),.req_i(per_req),.add_i(per_add),.we_ni(per_we_n),.wdata_i(per_wdata),.be_i(per_be),.gnt_o(per_gnt),.r_valid_o(per_r_valid),.r_opc_o(per_r_opc),.r_rdata_o(per_r_rdata));
+.per_master_req_o(per_req),.per_master_add_o(per_add),.per_master_we_o(per_we),.per_master_wdata_o(per_wdata),.per_master_be_o(per_be),.per_master_id_o(per_id),.per_master_user_o(per_user),.per_master_gnt_i(per_gnt),
+.per_master_r_valid_i(per_r_valid),.per_master_r_opc_i(per_r_opc),.per_master_r_rdata_i(per_r_rdata),.per_master_r_id_i(per_r_id),.per_master_r_user_i(per_r_user),.busy_o(busy));
+per_slave_model #(.ADDR_WIDTH(PER_ADDR_WIDTH),.DATA_WIDTH(PER_DATA_WIDTH),.MEM_WORDS(256),.RESP_DELAY(1)) per(.clk_i(clk),.rst_ni(rst_n),.req_i(per_req),.add_i(per_add),.we_i(per_we),.wdata_i(per_wdata),.be_i(per_be),.id_i(per_id),.user_i(per_user),.gnt_o(per_gnt),.r_valid_o(per_r_valid),.r_opc_o(per_r_opc),.r_rdata_o(per_r_rdata),.r_id_o(per_r_id),.r_user_o(per_r_user));
 
 task burst_write2(input [31:0] addr,input [127:0] d0,d1,input [2:0] id); begin
  @(posedge clk); aw_valid<=1; aw_addr<=addr; aw_len<=8'd1; aw_size<=3'b100; aw_burst<=2'b01; aw_id<=id;

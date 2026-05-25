@@ -86,17 +86,21 @@ module axi2per
    // PERIPHERAL INTERCONNECT MASTER
    //***************************************
    //REQUEST CHANNEL
-   output logic                      per_master_req_o,
-   output logic [PER_ADDR_WIDTH-1:0] per_master_add_o,
-   output logic                      per_master_we_no,
-   output logic [PER_DATA_WIDTH-1:0] per_master_wdata_o,
+   output logic                        per_master_req_o,
+   output logic [PER_ADDR_WIDTH-1:0]   per_master_add_o,
+   output logic                        per_master_we_o,      // 1=WRITE, 0=READ (standard PULP convention)
+   output logic [PER_DATA_WIDTH-1:0]   per_master_wdata_o,
    output logic [PER_DATA_WIDTH/8-1:0] per_master_be_o,
-   input  logic                      per_master_gnt_i,
+   output logic [PER_ID_WIDTH-1:0]     per_master_id_o,
+   output logic [AXI_USER_WIDTH-1:0]   per_master_user_o,
+   input  logic                        per_master_gnt_i,
 
    //RESPONSE CHANNEL
    input logic                       per_master_r_valid_i,
    input logic                       per_master_r_opc_i,
    input logic [PER_DATA_WIDTH-1:0]  per_master_r_rdata_i,
+   input logic [PER_ID_WIDTH-1:0]    per_master_r_id_i,
+   input logic [AXI_USER_WIDTH-1:0]  per_master_r_user_i,
 
    // BUSY SIGNAL
    output logic                      busy_o
@@ -211,9 +215,11 @@ module axi2per
 
       .per_master_req_o      ( per_master_req_o    ),
       .per_master_add_o      ( per_master_add_o    ),
-      .per_master_we_o       ( per_master_we_no    ),
+      .per_master_we_o       ( per_master_we_o     ),
       .per_master_wdata_o    ( per_master_wdata_o  ),
       .per_master_be_o       ( per_master_be_o     ),
+      .per_master_id_o       ( per_master_id_o     ),
+      .per_master_user_o     ( per_master_user_o   ),
       .per_master_gnt_i      ( per_master_gnt_i    ),
 
       .trans_req_o           ( s_trans_req         ),
@@ -258,6 +264,8 @@ module axi2per
       .per_master_r_valid_i ( per_master_r_valid_i ),
       .per_master_r_opc_i   ( per_master_r_opc_i   ),
       .per_master_r_rdata_i ( per_master_r_rdata_i ),
+      .per_master_r_id_i    ( per_master_r_id_i    ),
+      .per_master_r_user_i  ( per_master_r_user_i  ),
 
       .trans_req_i          ( s_trans_req          ),
       .trans_we_i           ( s_trans_we           ),

@@ -57,7 +57,7 @@ logic                        busy;
 
 // DUT  (ports renamed for AMD Vivado IP packaging: aclk/aresetn/s_axi_*)
 axi2per #(
-  .PER_ADDR_WIDTH(PER_ADDR_WIDTH), .PER_DATA_WIDTH(PER_DATA_WIDTH),
+  .PER_DATA_WIDTH(PER_DATA_WIDTH),
   .PER_ID_WIDTH(PER_ID_WIDTH),
   .AXI_ADDR_WIDTH(AXI_ADDR_WIDTH), .AXI_DATA_WIDTH(AXI_DATA_WIDTH),
   .AXI_USER_WIDTH(AXI_USER_WIDTH), .AXI_ID_WIDTH(AXI_ID_WIDTH),

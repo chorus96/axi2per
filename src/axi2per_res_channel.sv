@@ -1,6 +1,5 @@
 module axi2per_res_channel
 #(
-   parameter PER_ADDR_WIDTH = 32,
    parameter PER_DATA_WIDTH = 256,
    parameter AXI_ADDR_WIDTH = 32,
    parameter AXI_DATA_WIDTH = 64,
@@ -35,7 +34,8 @@ module axi2per_res_channel
    input logic [7:0]                 trans_len_i,
    output logic                      trans_r_valid_o
 );
-localparam int unsigned AXI_BE_WIDTH = AXI_DATA_WIDTH/8;
+localparam integer      PER_ADDR_WIDTH = AXI_ADDR_WIDTH; // always equal to AXI_ADDR_WIDTH
+localparam int unsigned AXI_BE_WIDTH   = AXI_DATA_WIDTH/8;
 localparam int unsigned BEAT_RATIO   = (PER_DATA_WIDTH/AXI_DATA_WIDTH);
 localparam int unsigned SLOT_W       = (BEAT_RATIO > 1) ? $clog2(BEAT_RATIO) : 1;
 

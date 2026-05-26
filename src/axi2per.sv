@@ -18,7 +18,6 @@
 
 module axi2per
 #(
-   parameter integer PER_ADDR_WIDTH = 32,
    parameter integer PER_DATA_WIDTH = 256,
    parameter integer AXI_ADDR_WIDTH = 32,
    parameter integer AXI_DATA_WIDTH = 64,
@@ -163,6 +162,9 @@ module axi2per
    output logic                        busy_o
 );
 
+   // ── PER_ADDR_WIDTH is always equal to AXI_ADDR_WIDTH ────────────────────────
+   localparam integer PER_ADDR_WIDTH = AXI_ADDR_WIDTH;
+
    // ── Internal signal declarations ─────────────────────────────────────────────
    logic                              s_aw_valid;
    logic [AXI_ADDR_WIDTH-1:0]         s_aw_addr;
@@ -223,7 +225,6 @@ module axi2per
    // ── AXI2PER REQUEST CHANNEL ──────────────────────────────────────────────────
    axi2per_req_channel
    #(
-      .PER_ADDR_WIDTH        ( PER_ADDR_WIDTH      ),
       .PER_ID_WIDTH          ( PER_ID_WIDTH        ),
       .PER_DATA_WIDTH        ( PER_DATA_WIDTH      ),
       .AXI_ADDR_WIDTH        ( AXI_ADDR_WIDTH      ),
@@ -293,7 +294,6 @@ module axi2per
    // ── AXI2PER RESPONSE CHANNEL ─────────────────────────────────────────────────
    axi2per_res_channel
    #(
-      .PER_ADDR_WIDTH       ( PER_ADDR_WIDTH       ),
       .PER_ID_WIDTH         ( PER_ID_WIDTH         ),
       .PER_DATA_WIDTH       ( PER_DATA_WIDTH       ),
       .AXI_ADDR_WIDTH       ( AXI_ADDR_WIDTH       ),

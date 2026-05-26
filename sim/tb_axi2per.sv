@@ -55,7 +55,7 @@ logic [PER_ID_WIDTH-1:0]     per_r_id;
 logic [AXI_USER_WIDTH-1:0]   per_r_user; // echoed user from peripheral
 logic                        busy;
 
-// DUT
+// DUT  (ports renamed for AMD Vivado IP packaging: aclk/aresetn/s_axi_*)
 axi2per #(
   .PER_ADDR_WIDTH(PER_ADDR_WIDTH), .PER_DATA_WIDTH(PER_DATA_WIDTH),
   .PER_ID_WIDTH(PER_ID_WIDTH),
@@ -63,36 +63,36 @@ axi2per #(
   .AXI_USER_WIDTH(AXI_USER_WIDTH), .AXI_ID_WIDTH(AXI_ID_WIDTH),
   .BUFFER_DEPTH(BUFFER_DEPTH)
 ) dut (
-  .clk_i(clk), .rst_ni(rst_n), .test_en_i(1'b0),
+  .aclk(clk), .aresetn(rst_n), .test_en_i(1'b0),
   // AW
-  .axi_slave_aw_valid_i(aw_valid), .axi_slave_aw_addr_i(aw_addr),
-  .axi_slave_aw_prot_i('0), .axi_slave_aw_region_i('0),
-  .axi_slave_aw_len_i(aw_len), .axi_slave_aw_size_i(aw_size),
-  .axi_slave_aw_burst_i(aw_burst), .axi_slave_aw_lock_i('0),
-  .axi_slave_aw_cache_i('0), .axi_slave_aw_qos_i('0),
-  .axi_slave_aw_id_i(aw_id), .axi_slave_aw_user_i(aw_user),   // ← user connected
-  .axi_slave_aw_ready_o(aw_ready),
+  .s_axi_awvalid(aw_valid), .s_axi_awaddr(aw_addr),
+  .s_axi_awprot('0), .s_axi_awregion('0),
+  .s_axi_awlen(aw_len), .s_axi_awsize(aw_size),
+  .s_axi_awburst(aw_burst), .s_axi_awlock('0),
+  .s_axi_awcache('0), .s_axi_awqos('0),
+  .s_axi_awid(aw_id), .s_axi_awuser(aw_user),   // ← user connected
+  .s_axi_awready(aw_ready),
   // AR
-  .axi_slave_ar_valid_i(ar_valid), .axi_slave_ar_addr_i(ar_addr),
-  .axi_slave_ar_prot_i('0), .axi_slave_ar_region_i('0),
-  .axi_slave_ar_len_i(ar_len), .axi_slave_ar_size_i(ar_size),
-  .axi_slave_ar_burst_i(ar_burst), .axi_slave_ar_lock_i('0),
-  .axi_slave_ar_cache_i('0), .axi_slave_ar_qos_i('0),
-  .axi_slave_ar_id_i(ar_id), .axi_slave_ar_user_i(ar_user),   // ← user connected
-  .axi_slave_ar_ready_o(ar_ready),
+  .s_axi_arvalid(ar_valid), .s_axi_araddr(ar_addr),
+  .s_axi_arprot('0), .s_axi_arregion('0),
+  .s_axi_arlen(ar_len), .s_axi_arsize(ar_size),
+  .s_axi_arburst(ar_burst), .s_axi_arlock('0),
+  .s_axi_arcache('0), .s_axi_arqos('0),
+  .s_axi_arid(ar_id), .s_axi_aruser(ar_user),   // ← user connected
+  .s_axi_arready(ar_ready),
   // W
-  .axi_slave_w_valid_i(w_valid), .axi_slave_w_data_i(w_data),
-  .axi_slave_w_strb_i(w_strb), .axi_slave_w_user_i('0),
-  .axi_slave_w_last_i(w_last), .axi_slave_w_ready_o(w_ready),
+  .s_axi_wvalid(w_valid), .s_axi_wdata(w_data),
+  .s_axi_wstrb(w_strb), .s_axi_wuser('0),
+  .s_axi_wlast(w_last), .s_axi_wready(w_ready),
   // R
-  .axi_slave_r_valid_o(r_valid), .axi_slave_r_data_o(r_data),
-  .axi_slave_r_resp_o(), .axi_slave_r_last_o(r_last),
-  .axi_slave_r_id_o(r_id), .axi_slave_r_user_o(r_user),       // ← user connected
-  .axi_slave_r_ready_i(r_ready),
+  .s_axi_rvalid(r_valid), .s_axi_rdata(r_data),
+  .s_axi_rresp(), .s_axi_rlast(r_last),
+  .s_axi_rid(r_id), .s_axi_ruser(r_user),       // ← user connected
+  .s_axi_rready(r_ready),
   // B
-  .axi_slave_b_valid_o(b_valid), .axi_slave_b_resp_o(),
-  .axi_slave_b_id_o(b_id), .axi_slave_b_user_o(b_user),       // ← user connected
-  .axi_slave_b_ready_i(b_ready),
+  .s_axi_bvalid(b_valid), .s_axi_bresp(),
+  .s_axi_bid(b_id), .s_axi_buser(b_user),       // ← user connected
+  .s_axi_bready(b_ready),
   // Peripheral master
   .per_master_req_o(per_req), .per_master_add_o(per_add),
   .per_master_we_o(per_we),   .per_master_wdata_o(per_wdata),

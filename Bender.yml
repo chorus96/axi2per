@@ -6,10 +6,10 @@ dependencies:
 
 sources:
   # Level 0
-  - axi2per_req_channel.sv
-  - axi2per_res_channel.sv
+  - src/axi2per_req_channel.sv
+  - src/axi2per_res_channel.sv
   # Level 1
-  - axi2per.sv
+  - src/axi2per.sv
 
   # Simulation-only sources (tb target)
   - target: simulation

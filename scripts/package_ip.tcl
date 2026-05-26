@@ -134,8 +134,9 @@ if {$clk_if ne ""} {
 
 # ── GUI Parameter configuration ─────────────────────────────────────────────────
 # Mark parameters that should appear in the IP Customization GUI.
+# Note: PER_ADDR_WIDTH is a localparam (= AXI_ADDR_WIDTH) and is not exposed here.
 foreach param_name {
-    PER_ADDR_WIDTH PER_DATA_WIDTH
+    PER_DATA_WIDTH
     AXI_ADDR_WIDTH AXI_DATA_WIDTH AXI_USER_WIDTH AXI_ID_WIDTH
     PER_ID_WIDTH BUFFER_DEPTH
 } {

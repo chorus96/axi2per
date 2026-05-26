@@ -13,13 +13,16 @@
 
 | 파라미터 | 값 | 설명 |
 |---|---|---|
-| `PER_DATA_WIDTH` | 512 | 주변장치 데이터 버스 폭 |
+| `AXI_ADDR_WIDTH` | 32 | AXI / 주변장치 주소 버스 폭 |
 | `AXI_DATA_WIDTH` | 128 | AXI 데이터 버스 폭 |
-| `BEAT_RATIO` | 4 | 주변장치 워드당 AXI 비트 수 |
-| `AXI_ID_WIDTH` | 3 | AXI ID 폭 (바이너리) |
-| `PER_ID_WIDTH` | 8 | 주변장치 ID 폭 (원-핫, 2³=8) |
 | `AXI_USER_WIDTH` | 6 | user 필드 폭 |
+| `AXI_ID_WIDTH` | 3 | AXI ID 폭 (바이너리) |
+| `PER_DATA_WIDTH` | 512 | 주변장치 데이터 버스 폭 |
+| `PER_ID_WIDTH` | 8 | 주변장치 ID 폭 (원-핫, 2³=8) |
+| `BEAT_RATIO` | 4 | 주변장치 워드당 AXI 비트 수 |
 | `BUFFER_DEPTH` | 2 | AXI 채널 버퍼 깊이 |
+
+> `PER_ADDR_WIDTH`는 `localparam = AXI_ADDR_WIDTH`로 파생되므로 별도 설정 불필요
 
 ---
 
@@ -96,13 +99,18 @@ graph LR
 
 ### DUT 파라미터 연결
 ```systemverilog
+// PER_ADDR_WIDTH는 제거됨 — DUT 내부에서 localparam = AXI_ADDR_WIDTH로 자동 설정
 axi2per #(
-  .PER_ADDR_WIDTH(32), .PER_DATA_WIDTH(512),
+  .PER_DATA_WIDTH(512),
   .PER_ID_WIDTH(8),    // 명시적 원-핫 폭 설정
   .AXI_ADDR_WIDTH(32), .AXI_DATA_WIDTH(128),
   .AXI_USER_WIDTH(6),  .AXI_ID_WIDTH(3),
   .BUFFER_DEPTH(2)
-) dut (...);
+) dut (
+  // 포트명: AMD Vivado IP 패키징 호환 명칭 사용
+  .aclk(clk), .aresetn(rst_n), .test_en_i(1'b0),
+  .s_axi_awvalid(aw_valid), .s_axi_awaddr(aw_addr), ...
+);
 
 per_slave_model #(
   .ADDR_WIDTH(32), .DATA_WIDTH(512),

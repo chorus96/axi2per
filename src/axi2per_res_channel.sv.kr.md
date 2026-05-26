@@ -16,18 +16,18 @@
 
 | 파라미터 | 기본값 | 설명 |
 |---|---|---|
-| `PER_ADDR_WIDTH` | 32 | 주변장치 주소 버스 폭 |
-| `PER_DATA_WIDTH` | 256 | 주변장치 데이터 버스 폭 |
 | `AXI_ADDR_WIDTH` | 32 | AXI 주소 버스 폭 |
 | `AXI_DATA_WIDTH` | 64 | AXI 데이터 버스 폭 |
 | `AXI_USER_WIDTH` | 6 | AXI user 신호 폭 |
 | `AXI_ID_WIDTH` | 3 | AXI ID 폭 (바이너리) |
+| `PER_DATA_WIDTH` | 256 | 주변장치 데이터 버스 폭 |
 | `PER_ID_WIDTH` | `2**AXI_ID_WIDTH` | 주변장치 ID 폭 (원-핫) |
 
 ### 파생 로컬파라미터
 
 | 로컬파라미터 | 계산식 | 설명 |
 |---|---|---|
+| `PER_ADDR_WIDTH` | `AXI_ADDR_WIDTH` | 주변장치 주소 버스 폭 — AXI와 항상 동일 |
 | `AXI_BE_WIDTH` | `AXI_DATA_WIDTH/8` | AXI 바이트 인에이블 폭 |
 | `BEAT_RATIO` | `PER_DATA_WIDTH/AXI_DATA_WIDTH` | 주변장치 워드 당 AXI 비트 수 |
 | `SLOT_W` | `$clog2(BEAT_RATIO)` | 슬롯 인덱스 비트 폭 |

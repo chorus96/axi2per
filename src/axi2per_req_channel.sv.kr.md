@@ -16,12 +16,11 @@
 
 | 파라미터 | 기본값 | 설명 |
 |---|---|---|
-| `PER_ADDR_WIDTH` | 32 | 주변장치 주소 버스 폭 |
-| `PER_DATA_WIDTH` | 256 | 주변장치 데이터 버스 폭 |
 | `AXI_ADDR_WIDTH` | 32 | AXI 주소 버스 폭 |
 | `AXI_DATA_WIDTH` | 64 | AXI 데이터 버스 폭 |
 | `AXI_USER_WIDTH` | 6 | AXI user 신호 폭 |
 | `AXI_ID_WIDTH` | 3 | AXI ID 폭 (바이너리) |
+| `PER_DATA_WIDTH` | 256 | 주변장치 데이터 버스 폭 |
 | `PER_ID_WIDTH` | `2**AXI_ID_WIDTH` | 주변장치 ID 폭 (원-핫) |
 | `AXI_STRB_WIDTH` | `AXI_DATA_WIDTH/8` | AXI 스트로브 폭 |
 | `PER_BE_WIDTH` | `PER_DATA_WIDTH/8` | 주변장치 바이트 인에이블 폭 |
@@ -30,6 +29,7 @@
 
 | 로컬파라미터 | 계산식 | 설명 |
 |---|---|---|
+| `PER_ADDR_WIDTH` | `AXI_ADDR_WIDTH` | 주변장치 주소 버스 폭 — AXI와 항상 동일 |
 | `AXI_BE_WIDTH` | `AXI_DATA_WIDTH/8` | AXI 비트당 바이트 수 |
 | `BEAT_RATIO` | `PER_DATA_WIDTH/AXI_DATA_WIDTH` | 주변장치 워드 당 AXI 비트 수 |
 | `SLOT_W` | `$clog2(BEAT_RATIO)` | 슬롯 인덱스 비트 폭 |
@@ -40,9 +40,11 @@
 
 ### 입력 — AXI 채널
 
+> `axi2per_req_channel`은 최상위 `axi2per` 버퍼의 출력 신호를 내부적으로 `axi_slave_*` 이름으로 수신합니다 (서브모듈 내부 포트명).
+
 | 포트 | 폭 | 설명 |
 |---|---|---|
-| `clk_i`, `rst_ni` | 1 | 클럭, 리셋 |
+| `clk_i`, `rst_ni` | 1 | 클럭, 리셋 (최상위에서 `aclk`/`aresetn` 연결) |
 | `axi_slave_aw_valid_i` | 1 | AW 채널 유효 |
 | `axi_slave_aw_addr_i` | AXI_ADDR_WIDTH | 쓰기 주소 |
 | `axi_slave_aw_len_i` | 8 | 버스트 길이 (AXI: len+1 비트) |
@@ -66,7 +68,7 @@
 | 포트 | 폭 | 설명 |
 |---|---|---|
 | `per_master_req_o` | 1 | 요청 유효 |
-| `per_master_add_o` | PER_ADDR_WIDTH | 요청 주소 |
+| `per_master_add_o` | AXI_ADDR_WIDTH | 요청 주소 (PER_ADDR_WIDTH = AXI_ADDR_WIDTH) |
 | `per_master_we_o` | 1 | **1=쓰기, 0=읽기** (PULP 표준) |
 | `per_master_wdata_o` | PER_DATA_WIDTH | 쓰기 데이터 (수집된 전체 워드) |
 | `per_master_be_o` | PER_BE_WIDTH | 바이트 인에이블 |

@@ -15,6 +15,7 @@ AXI4 슬레이브 인터페이스를 PULP 주변장치(peripheral) 마스터 인
 - **PULP 표준 `we` 극성**: `per_master_we_o = 1` → 쓰기, `0` → 읽기
 - **AXI 채널 버퍼**: AW/AR/W/R/B 채널에 FIFO 버퍼 내장 (`BUFFER_DEPTH` 설정)
 - **Bender 의존성 관리**: `axi_slice` 버퍼 서브모듈 자동 취득
+- **AMD Vivado IP 패키징 지원**: `s_axi_*`/`aclk`/`aresetn` 포트 명명 + `X_INTERFACE_INFO` 속성 + `scripts/package_ip.tcl`
 
 ---
 
@@ -47,7 +48,6 @@ AXI4 슬레이브 인터페이스를 PULP 주변장치(peripheral) 마스터 인
 
 | 파라미터 | 기본값 | 설명 |
 |---|---|---|
-| `PER_ADDR_WIDTH` | 32 | 주변장치 주소 버스 폭 (비트) |
 | `PER_DATA_WIDTH` | 256 | 주변장치 데이터 버스 폭 (비트) |
 | `AXI_ADDR_WIDTH` | 32 | AXI 주소 버스 폭 (비트) |
 | `AXI_DATA_WIDTH` | 64 | AXI 데이터 버스 폭 (비트) |
@@ -55,6 +55,12 @@ AXI4 슬레이브 인터페이스를 PULP 주변장치(peripheral) 마스터 인
 | `AXI_ID_WIDTH` | 3 | AXI ID 폭 (바이너리, 비트) |
 | `PER_ID_WIDTH` | `2**AXI_ID_WIDTH` | 주변장치 ID 폭 (원-핫, 비트) |
 | `BUFFER_DEPTH` | 2 | AXI 채널 FIFO 버퍼 깊이 |
+
+### 파생 로컬파라미터
+
+| 로컬파라미터 | 값 | 설명 |
+|---|---|---|
+| `PER_ADDR_WIDTH` | `AXI_ADDR_WIDTH` | 주변장치 주소 버스 폭 — AXI와 항상 동일하므로 `localparam`으로 고정 |
 
 ### 데이터 폭 예시
 
@@ -71,7 +77,7 @@ AXI4 슬레이브 인터페이스를 PULP 주변장치(peripheral) 마스터 인
 ```
 axi2per/
 ├── src/                        # RTL 소스
-│   ├── axi2per.sv              # 최상위 모듈
+│   ├── axi2per.sv              # 최상위 모듈 (AMD Vivado IP 패키징 지원)
 │   ├── axi2per_req_channel.sv  # AXI → 주변장치 요청 변환
 │   ├── axi2per_res_channel.sv  # 주변장치 응답 → AXI 변환
 │   ├── axi2per.sv.kr.md        # 한국어 문서
@@ -85,10 +91,12 @@ axi2per/
 ├── scripts/                    # 빌드·설치 스크립트
 │   ├── install_tools.sh        # Verilator + Bender 설치
 │   ├── verilator_sim.sh        # 시뮬레이션 빌드·실행
+│   ├── package_ip.tcl          # AMD Vivado IP 패키징 스크립트
 │   ├── verilator.f             # RTL 파일리스트 스냅샷
 │   ├── verilator_sim.f         # 시뮬레이션 파일리스트 스냅샷
 │   ├── install_tools.sh.kr.md  # 한국어 문서
-│   └── verilator_sim.sh.kr.md
+│   ├── verilator_sim.sh.kr.md
+│   └── package_ip.tcl.kr.md   # 한국어 문서
 ├── Bender.yml                  # 의존성 선언
 └── README.md
 ```
@@ -140,6 +148,17 @@ ALL TESTS PASSED: user field correctly propagated AXI ↔ peripheral
 ./scripts/verilator_sim.sh --sim --clean
 ```
 
+### 5. AMD Vivado IP 패키징
+
+```bash
+vivado -mode batch -source scripts/package_ip.tcl
+```
+
+`ip_output/axi2per/` 디렉토리와 `ip_output/axi2per_1.0.zip` 아카이브를 생성합니다.  
+IP Catalog에서 직접 임포트하거나 zip 아카이브를 배포할 수 있습니다.
+
+> **사전 조건**: `bender update`로 의존성을 먼저 취득하고, PART 변수를 타깃 FPGA에 맞게 수정하세요.
+
 ---
 
 ## 시뮬레이션 테스트
@@ -187,6 +206,7 @@ AXI ID  │  주변장치 ID (원-핫)
 | `sim/tb_axi2per.sv` | [tb_axi2per.sv.kr.md](sim/tb_axi2per.sv.kr.md) |
 | `scripts/install_tools.sh` | [install_tools.sh.kr.md](scripts/install_tools.sh.kr.md) |
 | `scripts/verilator_sim.sh` | [verilator_sim.sh.kr.md](scripts/verilator_sim.sh.kr.md) |
+| `scripts/package_ip.tcl` | [package_ip.tcl.kr.md](scripts/package_ip.tcl.kr.md) |
 
 ---
 

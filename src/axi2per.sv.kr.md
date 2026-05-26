@@ -11,15 +11,20 @@ AXI4의 읽기/쓰기 트랜잭션을 PULP 주변장치 프로토콜로 번역�
 
 | 파라미터 | 기본값 | 설명 |
 |---|---|---|
-| `PER_ADDR_WIDTH` | 32 | 주변장치 주소 버스 폭 (비트) |
-| `PER_DATA_WIDTH` | 256 | 주변장치 데이터 버스 폭 (비트) |
 | `AXI_ADDR_WIDTH` | 32 | AXI 주소 버스 폭 (비트) |
 | `AXI_DATA_WIDTH` | 64 | AXI 데이터 버스 폭 (비트) |
 | `AXI_USER_WIDTH` | 6 | AXI user 신호 폭 (비트) |
 | `AXI_ID_WIDTH` | 3 | AXI ID 폭 (비트, 바이너리) |
+| `PER_DATA_WIDTH` | 256 | 주변장치 데이터 버스 폭 (비트) |
 | `PER_ID_WIDTH` | `2**AXI_ID_WIDTH` | 주변장치 ID 폭 (비트, 원-핫) |
 | `BUFFER_DEPTH` | 2 | AXI 채널 버퍼 깊이 |
 | `AXI_STRB_WIDTH` | `AXI_DATA_WIDTH/8` | AXI 스트로브 폭 (바이트) |
+
+### 파생 로컬파라미터
+
+| 로컬파라미터 | 계산식 | 설명 |
+|---|---|---|
+| `PER_ADDR_WIDTH` | `AXI_ADDR_WIDTH` | 주변장치 주소 버스 폭 — AXI와 항상 동일 |
 
 > **원-핫 인코딩**: AXI_ID_WIDTH=3이면 PER_ID_WIDTH=8. AXI ID값 N → 주변장치 ID 비트[N]=1, 나머지=0
 
@@ -31,27 +36,31 @@ AXI4의 읽기/쓰기 트랜잭션을 PULP 주변장치 프로토콜로 번역�
 
 | 포트 | 방향 | 폭 | 설명 |
 |---|---|---|---|
-| `clk_i` | 입력 | 1 | 시스템 클럭 |
-| `rst_ni` | 입력 | 1 | 비동기 액티브-로우 리셋 |
+| `aclk` | 입력 | 1 | 시스템 클럭 (AXI 표준 명칭) |
+| `aresetn` | 입력 | 1 | 비동기 액티브-로우 리셋 (AXI 표준 명칭) |
 | `test_en_i` | 입력 | 1 | 테스트 모드 활성화 |
 | `busy_o` | 출력 | 1 | 브리지 동작 중 표시 |
 
-### 3-2. AXI4 슬레이브 채널
+> `aclk` / `aresetn`은 AMD Vivado IP Packager가 자동으로 Clock/Reset 인터페이스로 인식하는 표준 명칭입니다.
+
+### 3-2. AXI4 슬레이브 채널 (`s_axi_*`)
 
 | 채널 | 주요 신호 | 방향 |
 |---|---|---|
-| **AW** (쓰기 주소) | `aw_valid/ready`, `aw_addr`, `aw_len`, `aw_id`, `aw_user`, ... | 입출력 |
-| **AR** (읽기 주소) | `ar_valid/ready`, `ar_addr`, `ar_len`, `ar_id`, `ar_user`, ... | 입출력 |
-| **W** (쓰기 데이터) | `w_valid/ready`, `w_data`, `w_strb`, `w_last`, ... | 입출력 |
-| **R** (읽기 데이터) | `r_valid/ready`, `r_data`, `r_id`, `r_user`, `r_last`, ... | 입출력 |
-| **B** (쓰기 응답) | `b_valid/ready`, `b_id`, `b_user`, ... | 입출력 |
+| **AW** (쓰기 주소) | `s_axi_awvalid/awready`, `s_axi_awaddr`, `s_axi_awlen`, `s_axi_awid`, `s_axi_awuser`, ... | 입출력 |
+| **AR** (읽기 주소) | `s_axi_arvalid/arready`, `s_axi_araddr`, `s_axi_arlen`, `s_axi_arid`, `s_axi_aruser`, ... | 입출력 |
+| **W** (쓰기 데이터) | `s_axi_wvalid/wready`, `s_axi_wdata`, `s_axi_wstrb`, `s_axi_wlast`, ... | 입출력 |
+| **R** (읽기 데이터) | `s_axi_rvalid/rready`, `s_axi_rdata`, `s_axi_rid`, `s_axi_ruser`, `s_axi_rlast`, ... | 입출력 |
+| **B** (쓰기 응답) | `s_axi_bvalid/bready`, `s_axi_bid`, `s_axi_buser`, ... | 입출력 |
+
+> `s_axi_*` 명명 규칙은 AMD Vivado IP Packager가 AXI4 Slave 인터페이스를 자동으로 인식하는 표준 패턴입니다.
 
 ### 3-3. PULP 주변장치 마스터
 
 | 포트 | 방향 | 폭 | 설명 |
 |---|---|---|---|
 | `per_master_req_o` | 출력 | 1 | 요청 유효 |
-| `per_master_add_o` | 출력 | PER_ADDR_WIDTH | 요청 주소 |
+| `per_master_add_o` | 출력 | AXI_ADDR_WIDTH | 요청 주소 (PER_ADDR_WIDTH = AXI_ADDR_WIDTH) |
 | `per_master_we_o` | 출력 | 1 | 1=쓰기, 0=읽기 (PULP 표준) |
 | `per_master_wdata_o` | 출력 | PER_DATA_WIDTH | 쓰기 데이터 |
 | `per_master_be_o` | 출력 | PER_DATA_WIDTH/8 | 바이트 인에이블 |
@@ -181,3 +190,45 @@ AXI ID (바이너리)  |  주변장치 ID (원-핫, 8비트)
 ```
 
 수식: `per_master_id_o = {{(PER_ID_WIDTH-1){1'b0}}, 1'b1} << axi_id`
+
+---
+
+## 9. AMD Vivado IP 패키징
+
+### 포트 명명 규칙 변경 이력
+
+| 이전 포트명 | 현재 포트명 | 변경 이유 |
+|---|---|---|
+| `clk_i` | `aclk` | Vivado Clock 인터페이스 자동 인식 |
+| `rst_ni` | `aresetn` | Vivado Reset 인터페이스 자동 인식 (ACTIVE_LOW) |
+| `axi_slave_aw_valid_i` | `s_axi_awvalid` | Vivado AXI4 Slave 인터페이스 자동 인식 |
+| `axi_slave_ar_addr_i` | `s_axi_araddr` | 동일 |
+| `axi_slave_r_data_o` | `s_axi_rdata` | 동일 |
+| ... (모든 AXI 채널) | ... | 동일 패턴 적용 |
+
+### Vivado 합성 속성
+
+```systemverilog
+// 클럭
+(* X_INTERFACE_INFO      = "xilinx.com:signal:clock:1.0 ACLK CLK" *)
+(* X_INTERFACE_PARAMETER = "ASSOCIATED_BUSIF S_AXI, ASSOCIATED_RESET ARESETN, FREQ_HZ 100000000" *)
+input logic aclk,
+
+// 리셋
+(* X_INTERFACE_INFO      = "xilinx.com:signal:reset:1.0 ARESETN RST" *)
+(* X_INTERFACE_PARAMETER = "POLARITY ACTIVE_LOW" *)
+input logic aresetn,
+
+// AXI4 인터페이스 (AWVALID에 인터페이스 파라미터 선언)
+(* X_INTERFACE_PARAMETER = "XIL_INTERFACENAME S_AXI, DATA_WIDTH 64, PROTOCOL AXI4, ..." *)
+(* X_INTERFACE_INFO = "xilinx.com:interface:aximm:1.0 S_AXI AWVALID" *)
+input logic s_axi_awvalid,
+```
+
+### 패키징 스크립트
+
+```bash
+vivado -mode batch -source scripts/package_ip.tcl
+```
+
+출력: `ip_output/axi2per/component.xml` + `ip_output/axi2per_1.0.zip`

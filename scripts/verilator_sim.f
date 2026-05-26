@@ -169,9 +169,9 @@
 +define+TARGET_SIMULATION
 +define+TARGET_SYNTHESIS
 +define+TARGET_VERILATOR
-/home/user/axi2per/axi2per_req_channel.sv
-/home/user/axi2per/axi2per_res_channel.sv
-/home/user/axi2per/axi2per.sv
+/home/user/axi2per/src/axi2per_req_channel.sv
+/home/user/axi2per/src/axi2per_res_channel.sv
+/home/user/axi2per/src/axi2per.sv
 
 +define+TARGET_SIMULATION
 +define+TARGET_SYNTHESIS
